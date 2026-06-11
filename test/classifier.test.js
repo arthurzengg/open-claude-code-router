@@ -2,11 +2,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert');
-const {
-  classifyComplexity,
-  heuristicLabel,
-  extractLastUserText,
-} = require('../lib/classifier');
+const { classifyComplexity, heuristicLabel, normalizeLabel } = require('../lib/classifier');
 
 test('heuristicLabel marks short read-style commands as simple', () => {
   assert.strictEqual(heuristicLabel('cat package.json'), 'simple');
@@ -29,36 +25,26 @@ test('heuristicLabel returns null for ambiguous requests', () => {
   );
 });
 
-test('extractLastUserText handles string and block content', () => {
-  assert.strictEqual(
-    extractLastUserText([
-      { role: 'user', content: 'first' },
-      { role: 'assistant', content: 'reply' },
-      { role: 'user', content: 'second' },
-    ]),
-    'second',
-  );
-  assert.strictEqual(
-    extractLastUserText([
-      { role: 'user', content: [{ type: 'text', text: 'a' }, { type: 'text', text: 'b' }] },
-    ]),
-    'a b',
-  );
-  assert.strictEqual(extractLastUserText([{ role: 'assistant', content: 'x' }]), null);
-  assert.strictEqual(extractLastUserText(undefined), null);
+test('normalizeLabel tolerates casing, whitespace, and punctuation', () => {
+  assert.strictEqual(normalizeLabel('Complex.'), 'complex');
+  assert.strictEqual(normalizeLabel(' SIMPLE\n'), 'simple');
+  assert.strictEqual(normalizeLabel('"default"'), 'default');
+  assert.strictEqual(normalizeLabel('something else'), null);
+  assert.strictEqual(normalizeLabel(undefined), null);
 });
 
-test('classifyComplexity returns default when there is no user message', async () => {
-  assert.strictEqual(await classifyComplexity([], {}), 'default');
+test('classifyComplexity returns default for empty text', async () => {
+  assert.strictEqual(await classifyComplexity('', {}), 'default');
+  assert.strictEqual(await classifyComplexity('   ', {}), 'default');
   assert.strictEqual(await classifyComplexity(undefined, {}), 'default');
 });
 
-test('classifyComplexity uses the model label for ambiguous cases', async (t) => {
+test('classifyComplexity uses the normalized model label', async (t) => {
   t.mock.method(globalThis, 'fetch', async () => ({
-    json: async () => ({ content: [{ type: 'text', text: 'complex' }] }),
+    json: async () => ({ content: [{ type: 'text', text: 'Complex.\n' }] }),
   }));
   const label = await classifyComplexity(
-    [{ role: 'user', content: 'fix the failing assertion in the payments unit suite' }],
+    'fix the failing assertion in the payments unit suite',
     { 'x-api-key': 'test' },
   );
   assert.strictEqual(label, 'complex');
@@ -69,7 +55,7 @@ test('classifyComplexity falls back to default on fetch failure', async (t) => {
     throw new Error('network down');
   });
   const label = await classifyComplexity(
-    [{ role: 'user', content: 'fix the failing assertion in the payments unit suite' }],
+    'fix the failing assertion in the payments unit suite',
     { 'x-api-key': 'test' },
   );
   assert.strictEqual(label, 'default');
@@ -80,7 +66,7 @@ test('classifyComplexity falls back to default on malformed responses', async (t
     json: async () => ({ error: { type: 'invalid_request_error' } }),
   }));
   const label = await classifyComplexity(
-    [{ role: 'user', content: 'fix the failing assertion in the payments unit suite' }],
+    'fix the failing assertion in the payments unit suite',
     { 'x-api-key': 'test' },
   );
   assert.strictEqual(label, 'default');
