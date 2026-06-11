@@ -73,12 +73,39 @@ Classification uses fast heuristics first; ambiguous cases fall back to a tiny H
 
 Runtime state lives in `~/.claude-router/`:
 
-| File         | Purpose                                  |
-| ------------ | ---------------------------------------- |
-| `proxy.pid`  | PID of the background proxy process      |
-| `port`       | Port the proxy bound to (3456-3466 scan) |
-| `router.log` | Routing decision history                 |
-| `meta.json`  | Install-state metadata for clean removal |
+| File          | Purpose                                  |
+| ------------- | ---------------------------------------- |
+| `proxy.pid`   | PID of the background proxy process      |
+| `port`        | Port the proxy bound to (3456-3466 scan) |
+| `router.log`  | Routing decision history                 |
+| `meta.json`   | Install-state metadata for clean removal |
+| `config.json` | Optional routing rule overrides          |
+
+### config.json
+
+All fields are optional and merge over the defaults shown below. Edits apply on the next request — no proxy restart needed.
+
+```json
+{
+  "models": {
+    "simple": "claude-haiku-4-5",
+    "default": "claude-sonnet-4-6",
+    "complex": "claude-opus-4-8"
+  },
+  "maxOutput": { "simple": 64000, "default": 64000, "complex": 128000 },
+  "haikuMaxTokens": 60000,
+  "classifier": "auto"
+}
+```
+
+- `models` — the model used for each complexity tier. Overriding a tier's model resets its `maxOutput` to a conservative 64000 unless you also set it explicitly.
+- `maxOutput` — per-tier `max_tokens` ceiling; requests above it are clamped.
+- `haikuMaxTokens` — estimated-input-token threshold above which a conversation is floored at the default tier (long conversations should not run on the small model).
+- `classifier` — `auto` (heuristics, then a small Haiku call for ambiguous cases) or `heuristics-only` (never make classification API calls; ambiguous requests use the default tier).
+
+### Routing behavior
+
+Routing is decided once per conversation and cached in the proxy: follow-up calls in the same session (tool round-trips, later turns) reuse the decision, and mid-session changes are one-way upgrades only. This keeps Anthropic's model-scoped prompt cache warm — flipping models mid-conversation would invalidate it. When a request is rewritten to a smaller model, parameters the target does not support (adaptive thinking, `output_config.effort`) are stripped and `max_tokens` is clamped, so rewrites never produce invalid requests.
 
 ## Uninstall
 
