@@ -22,7 +22,7 @@
     "README_CN.md"
   ],
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test"
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "latest",
