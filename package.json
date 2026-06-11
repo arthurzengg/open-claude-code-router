@@ -18,8 +18,7 @@
     "bin",
     "lib",
     "scripts",
-    "README.md",
-    "README_CN.md"
+    "README.md"
   ],
   "scripts": {
     "test": "node --test",

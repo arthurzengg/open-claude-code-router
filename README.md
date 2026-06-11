@@ -2,8 +2,6 @@
 
 A transparent local proxy that wraps `@anthropic-ai/claude-code` and automatically routes requests across Anthropic models (Haiku / Sonnet / Opus) based on task complexity. Install once and keep using the `claude` command exactly as before — simple tasks go to cheap models, planning and deep reasoning go to the flagship.
 
-[中文文档](README_CN.md)
-
 ## How it works
 
 ```
